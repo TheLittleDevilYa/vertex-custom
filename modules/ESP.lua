@@ -1,80 +1,121 @@
--- ESP para MM2 - por TheLittleDevilYa
-
-local ESPModule = {}
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local ESP = {}
+ESP.Enabled = false
 local espObjects = {}
-local active = false
 
-local function GetRole(player)
-    local role = player:FindFirstChild("Role")
-    if role and role:IsA("StringValue") then
-        return role.Value
-    end
-    return "Desconocido"
+local RolesColors = {
+    ["Murderer"] = Color3.fromRGB(255, 0, 0),
+    ["Sheriff"] = Color3.fromRGB(0, 0, 255),
+    ["Innocent"] = Color3.fromRGB(0, 255, 0),
+    ["Unknown"] = Color3.fromRGB(255, 255, 255),
+}
+
+-- Crear BillboardGui para el jugador
+local function CreateBillboard(player)
+    if espObjects[player] then return end
+    local character = player.Character
+    if not character then return end
+    local head = character:FindFirstChild("Head")
+    if not head then return end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESPRole"
+    billboard.Adornee = head
+    billboard.Size = UDim2.new(0, 100, 0, 30)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = head
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextColor3 = RolesColors["Unknown"]
+    textLabel.Font = Enum.Font.SourceSansBold
+    textLabel.TextScaled = true
+    textLabel.Text = "Loading..."
+    textLabel.Parent = billboard
+
+    espObjects[player] = {
+        Billboard = billboard,
+        TextLabel = textLabel
+    }
 end
 
-local function CreateESP(player)
-    if player == Players.LocalPlayer then return end
-    if not player.Character then return end
-    if player.Character:FindFirstChild("ESPHighlight") then return end
-
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "ESPHighlight"
-    highlight.FillTransparency = 0.5
-    highlight.OutlineTransparency = 0
-    highlight.Adornee = player.Character
-    highlight.Parent = player.Character
-
-    local role = GetRole(player)
-
-    if role == "Murderer" then
-        highlight.FillColor = Color3.fromRGB(255, 0, 0)
-    elseif role == "Sheriff" then
-        highlight.FillColor = Color3.fromRGB(0, 0, 255)
-    else
-        highlight.FillColor = Color3.fromRGB(0, 255, 0)
+local function UpdateBillboard(player)
+    local espObj = espObjects[player]
+    if not espObj then return end
+    local character = player.Character
+    if not character then
+        espObj.Billboard.Enabled = false
+        return
+    end
+    local head = character:FindFirstChild("Head")
+    if not head then
+        espObj.Billboard.Enabled = false
+        return
     end
 
-    espObjects[player] = highlight
+    espObj.Billboard.Enabled = true
+
+    -- Obtener rol (depende del juego, en MM2 suele estar en player:GetAttribute o en alguna StringValue)
+    local role = player:GetAttribute("Role") or "Unknown"
+    -- Si no está en atributos, buscar en character un StringValue llamado "Role"
+    local roleValue = character:FindFirstChild("Role")
+    if roleValue and roleValue:IsA("StringValue") then
+        role = roleValue.Value
+    end
+
+    espObj.TextLabel.Text = role
+    espObj.TextLabel.TextColor3 = RolesColors[role] or RolesColors["Unknown"]
 end
 
-local function RemoveESP(player)
+local function RemoveBillboard(player)
     if espObjects[player] then
-        espObjects[player]:Destroy()
+        local espObj = espObjects[player]
+        if espObj.Billboard then
+            espObj.Billboard:Destroy()
+        end
         espObjects[player] = nil
     end
 end
 
-function ESPModule:SetEnabled(state)
-    active = state
-    if state then
-        for _, player in ipairs(Players:GetPlayers()) do
-            CreateESP(player)
+function ESP:SetEnabled(enabled)
+    self.Enabled = enabled
+    if enabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                CreateBillboard(player)
+            end
         end
 
-        -- Cuando un nuevo jugador entra o resetea personaje
-        Players.PlayerAdded:Connect(function(p)
-            p.CharacterAdded:Connect(function()
-                task.wait(1)
-                CreateESP(p)
-            end)
+        self.Connection = RunService.RenderStepped:Connect(function()
+            for player, _ in pairs(espObjects) do
+                UpdateBillboard(player)
+            end
         end)
 
-        for _, p in pairs(Players:GetPlayers()) do
-            p.CharacterAdded:Connect(function()
-                task.wait(1)
-                CreateESP(p)
-            end)
-        end
+        Players.PlayerAdded:Connect(function(player)
+            if player ~= LocalPlayer then
+                CreateBillboard(player)
+            end
+        end)
 
+        Players.PlayerRemoving:Connect(function(player)
+            RemoveBillboard(player)
+        end)
     else
-        for _, player in pairs(Players:GetPlayers()) do
-            RemoveESP(player)
+        if self.Connection then
+            self.Connection:Disconnect()
+            self.Connection = nil
+        end
+        for player, _ in pairs(espObjects) do
+            RemoveBillboard(player)
         end
     end
 end
 
-return ESPModule
+return ESP
