@@ -23,7 +23,7 @@ local function LoadModule(name)
 end
 
 -- Cargar librería Rayfield para GUI
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 -- Crear ventana
 local Window = Rayfield:CreateWindow({
