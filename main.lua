@@ -40,7 +40,6 @@ local Window = Rayfield:CreateWindow({
 local Tabs = {}
 Tabs.Main = Window:CreateTab("Principal")
 
--- Ejemplo toggle ESP
 Tabs.Main:CreateToggle({
     Name = "ESP",
     CurrentValue = false,
@@ -52,7 +51,6 @@ Tabs.Main:CreateToggle({
     end
 })
 
--- Agregar toggles para otros módulos (después los completamos)
 Tabs.Main:CreateToggle({
     Name = "AutoGun",
     CurrentValue = false,
