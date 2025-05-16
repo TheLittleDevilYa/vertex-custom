@@ -1,58 +1,80 @@
--- Módulo ESP
+-- ESP para MM2 - por TheLittleDevilYa
 
 local ESPModule = {}
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
+local espObjects = {}
 local active = false
-local connections = {}
 
-function ESPModule:SetEnabled(value)
-    active = value
-    if value then
-        self:EnableESP()
+local function GetRole(player)
+    local role = player:FindFirstChild("Role")
+    if role and role:IsA("StringValue") then
+        return role.Value
+    end
+    return "Desconocido"
+end
+
+local function CreateESP(player)
+    if player == Players.LocalPlayer then return end
+    if not player.Character then return end
+    if player.Character:FindFirstChild("ESPHighlight") then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESPHighlight"
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.Adornee = player.Character
+    highlight.Parent = player.Character
+
+    local role = GetRole(player)
+
+    if role == "Murderer" then
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+    elseif role == "Sheriff" then
+        highlight.FillColor = Color3.fromRGB(0, 0, 255)
     else
-        self:DisableESP()
+        highlight.FillColor = Color3.fromRGB(0, 255, 0)
+    end
+
+    espObjects[player] = highlight
+end
+
+local function RemoveESP(player)
+    if espObjects[player] then
+        espObjects[player]:Destroy()
+        espObjects[player] = nil
     end
 end
 
-function ESPModule:EnableESP()
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= Players.LocalPlayer then
-            local esp = Instance.new("Highlight")
-            esp.Name = "VertexESP"
-            esp.FillColor = Color3.fromRGB(255, 0, 0)
-            esp.OutlineColor = Color3.new(0, 0, 0)
-            esp.Parent = player.Character or player.CharacterAdded:Wait()
-            esp.Adornee = player.Character
+function ESPModule:SetEnabled(state)
+    active = state
+    if state then
+        for _, player in ipairs(Players:GetPlayers()) do
+            CreateESP(player)
         end
-    end
 
-    connections["PlayerAdded"] = Players.PlayerAdded:Connect(function(player)
-        player.CharacterAdded:Connect(function(char)
-            local esp = Instance.new("Highlight")
-            esp.Name = "VertexESP"
-            esp.FillColor = Color3.fromRGB(255, 0, 0)
-            esp.OutlineColor = Color3.new(0, 0, 0)
-            esp.Parent = char
-            esp.Adornee = char
+        -- Cuando un nuevo jugador entra o resetea personaje
+        Players.PlayerAdded:Connect(function(p)
+            p.CharacterAdded:Connect(function()
+                task.wait(1)
+                CreateESP(p)
+            end)
         end)
-    end)
-end
 
-function ESPModule:DisableESP()
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player.Character and player.Character:FindFirstChild("VertexESP") then
-            player.Character.VertexESP:Destroy()
+        for _, p in pairs(Players:GetPlayers()) do
+            p.CharacterAdded:Connect(function()
+                task.wait(1)
+                CreateESP(p)
+            end)
+        end
+
+    else
+        for _, player in pairs(Players:GetPlayers()) do
+            RemoveESP(player)
         end
     end
-
-    for _, conn in pairs(connections) do
-        conn:Disconnect()
-    end
-    connections = {}
 end
 
 return ESPModule
-
